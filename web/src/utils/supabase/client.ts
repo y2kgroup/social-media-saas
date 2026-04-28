@@ -1,8 +1,9 @@
 import { createBrowserClient } from '@supabase/ssr'
 
 export function createClient() {
+  const isServer = typeof window === 'undefined'
   return createBrowserClient(
-    '/api/supabase',
+    isServer ? process.env.NEXT_PUBLIC_SUPABASE_URL! : '/api/supabase',
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 }
