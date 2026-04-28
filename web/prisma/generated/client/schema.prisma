@@ -1,0 +1,100 @@
+generator client {
+  provider   = "prisma-client-js"
+  output     = "./generated/client"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  COMPANY_USER
+}
+
+enum PostStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  POSTED
+  FAILED
+}
+
+enum Platform {
+  FACEBOOK
+  INSTAGRAM
+  LINKEDIN
+  TWITTER
+  YELP
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role     @default(COMPANY_USER)
+  companyId    String?
+  company      Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Company {
+  id             String          @id @default(uuid())
+  name           String
+  website        String?
+  phone          String?
+  address        String?
+  email          String?
+  brandVoice     String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  users          User[]
+  promotions     Promotion[]
+  socialAccounts SocialAccount[]
+  posts          Post[]
+}
+
+model Promotion {
+  id          String    @id @default(uuid())
+  title       String
+  description String
+  validUntil  DateTime?
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model SocialAccount {
+  id              String   @id @default(uuid())
+  platform        Platform
+  accessToken     String
+  refreshToken    String?
+  pageOrProfileId String
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([platform, companyId])
+}
+
+model Post {
+  id              String     @id @default(uuid())
+  companyId       String
+  company         Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  generatedText   String
+  imageUrl        String?
+  status          PostStatus @default(DRAFT)
+  targetPlatforms Platform[]
+  scheduledAt     DateTime?
+  likes           Int        @default(0)
+  comments        Int        @default(0)
+  shares          Int        @default(0)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+}

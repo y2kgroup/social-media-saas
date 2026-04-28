@@ -1,0 +1,140 @@
+{
+  "name": "Publish to Social Media",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 * * * *"
+            }
+          ]
+        }
+      },
+      "name": "Schedule (Hourly)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM web.\"Post\" WHERE status = 'APPROVED' AND (\"scheduledAt\" <= NOW() OR \"scheduledAt\" IS NULL)",
+        "options": {}
+      },
+      "name": "Postgres (Fetch Approved Posts)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM web.\"SocialAccount\" WHERE \"companyId\" = {{$json.companyId}}",
+        "options": {}
+      },
+      "name": "Postgres (Fetch Tokens)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "text": "={{$node[\"Postgres (Fetch Approved Posts)\"].json[\"generatedText\"]}}",
+        "pageId": "={{$json[\"pageOrProfileId\"]}}"
+      },
+      "name": "Facebook Graph API",
+      "type": "n8n-nodes-base.facebookGraphApi",
+      "typeVersion": 1,
+      "position": [850, 150]
+    },
+    {
+      "parameters": {
+        "text": "={{$node[\"Postgres (Fetch Approved Posts)\"].json[\"generatedText\"]}}"
+      },
+      "name": "LinkedIn",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [850, 450]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": "web",
+        "table": "Post",
+        "updateKey": "id",
+        "columns": "status",
+        "options": {}
+      },
+      "name": "Postgres (Update to POSTED)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.1,
+      "position": [1050, 300]
+    }
+  ],
+  "connections": {
+    "Schedule (Hourly)": {
+      "main": [
+        [
+          {
+            "node": "Postgres (Fetch Approved Posts)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres (Fetch Approved Posts)": {
+      "main": [
+        [
+          {
+            "node": "Postgres (Fetch Tokens)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres (Fetch Tokens)": {
+      "main": [
+        [
+          {
+            "node": "Facebook Graph API",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Facebook Graph API": {
+      "main": [
+        [
+          {
+            "node": "Postgres (Update to POSTED)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Postgres (Update to POSTED)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {}
+}

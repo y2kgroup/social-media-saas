@@ -1,0 +1,139 @@
+{
+  "name": "Approval Processing",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-reply",
+        "options": {}
+      },
+      "name": "Webhook (From Express Server)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "rules": [
+            {
+              "conditions": {
+                "string": [
+                  {
+                    "value1": "={{$json.body.action}}",
+                    "value2": "approve"
+                  }
+                ]
+              },
+              "outputKey": "approve"
+            },
+            {
+              "conditions": {
+                "string": [
+                  {
+                    "value1": "={{$json.body.action}}",
+                    "value2": "regenerate"
+                  }
+                ]
+              },
+              "outputKey": "regenerate"
+            },
+            {
+              "conditions": {
+                "string": [
+                  {
+                    "value1": "={{$json.body.action}}",
+                    "value2": "skip"
+                  }
+                ]
+              },
+              "outputKey": "skip"
+            }
+          ]
+        }
+      },
+      "name": "Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": "web",
+        "table": "Post",
+        "updateKey": "id",
+        "columns": "status",
+        "options": {}
+      },
+      "name": "Postgres (Update to APPROVED)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.1,
+      "position": [700, 150]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": "web",
+        "table": "Post",
+        "updateKey": "id",
+        "columns": "status",
+        "options": {}
+      },
+      "name": "Postgres (Update to REJECTED)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.1,
+      "position": [700, 450]
+    },
+    {
+      "parameters": {
+        "workflowId": "Daily_Post_Generation"
+      },
+      "name": "Execute Workflow (Regenerate)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [700, 300]
+    }
+  ],
+  "connections": {
+    "Webhook (From Express Server)": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Postgres (Update to APPROVED)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute Workflow (Regenerate)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Postgres (Update to REJECTED)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {}
+}

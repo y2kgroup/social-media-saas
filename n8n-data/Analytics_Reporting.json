@@ -1,0 +1,115 @@
+{
+  "name": "Analytics Reporting",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 23 * * *"
+            }
+          ]
+        }
+      },
+      "name": "Schedule (Nightly)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM web.\"Post\" WHERE status = 'POSTED' AND \"createdAt\" > NOW() - INTERVAL '30 days'",
+        "options": {}
+      },
+      "name": "Postgres (Fetch Active Posts)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM web.\"SocialAccount\" WHERE \"companyId\" = {{$json.companyId}}",
+        "options": {}
+      },
+      "name": "Postgres (Fetch Tokens)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "path": "={{$json.pageOrProfileId}}/insights",
+        "options": {}
+      },
+      "name": "Facebook Graph API (Fetch Insights)",
+      "type": "n8n-nodes-base.facebookGraphApi",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": "web",
+        "table": "Post",
+        "updateKey": "id",
+        "columns": "likes, comments, shares",
+        "options": {}
+      },
+      "name": "Postgres (Save Analytics)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.1,
+      "position": [1050, 300]
+    }
+  ],
+  "connections": {
+    "Schedule (Nightly)": {
+      "main": [
+        [
+          {
+            "node": "Postgres (Fetch Active Posts)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres (Fetch Active Posts)": {
+      "main": [
+        [
+          {
+            "node": "Postgres (Fetch Tokens)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres (Fetch Tokens)": {
+      "main": [
+        [
+          {
+            "node": "Facebook Graph API (Fetch Insights)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Facebook Graph API (Fetch Insights)": {
+      "main": [
+        [
+          {
+            "node": "Postgres (Save Analytics)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {}
+}

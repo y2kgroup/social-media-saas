@@ -1,0 +1,219 @@
+{
+  "name": "Daily Post Generation",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      },
+      "id": "e1f6a6d0-a703-4d51-877f-34eba4f8a3a0",
+      "name": "Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT c.id AS \"companyId\", c.name, c.\"brandVoice\", c.phone, p.title, p.description FROM web.\"Company\" c LEFT JOIN web.\"Promotion\" p ON c.id = p.\"companyId\"",
+        "options": {}
+      },
+      "id": "e2f6a6d0-a703-4d51-877f-34eba4f8a3a1",
+      "name": "Postgres (Fetch Companies)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Write a social media post for {{$json.name}}.\nBrand voice: {{$json.brandVoice}}\nInclude promotion: {{$json.title}} - {{$json.description}}"
+      },
+      "id": "e3f6a6d0-a703-4d51-877f-34eba4f8a3a2",
+      "name": "Google Gemini (Generate Text)",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-pro"
+      },
+      "id": "e4f6a6d0-a703-4d51-877f-34eba4f8a3a3",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [650, 500]
+    },
+    {
+      "parameters": {
+        "mode": "manualMapping",
+        "fields": {
+          "mapping": [
+            {
+              "id": "mapping_1",
+              "name": "id",
+              "value": "={{ 'post_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5) }}",
+              "type": "string"
+            },
+            {
+              "id": "mapping_2",
+              "name": "companyId",
+              "value": "={{ $('Postgres (Fetch Companies)').item.json.companyId }}",
+              "type": "string"
+            },
+            {
+              "id": "mapping_3",
+              "name": "generatedText",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "mapping_4",
+              "name": "status",
+              "value": "DRAFT",
+              "type": "string"
+            },
+            {
+              "id": "mapping_5",
+              "name": "updatedAt",
+              "value": "={{ new Date().toISOString() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false
+      },
+      "id": "e5f6a6d0-a703-4d51-877f-34eba4f8a3a4",
+      "name": "Edit Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": "web",
+        "table": "Post",
+        "columns": "id, companyId, generatedText, status, updatedAt",
+        "options": {}
+      },
+      "id": "e6f6a6d0-a703-4d51-877f-34eba4f8a3a5",
+      "name": "Postgres (Save Draft Post)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v20.0/WHATSAPP_PHONE_ID/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "whatsappApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "messaging_product",
+              "value": "whatsapp"
+            },
+            {
+              "name": "to",
+              "value": "={{ $('Postgres (Fetch Companies)').item.json.phone }}"
+            },
+            {
+              "name": "type",
+              "value": "text"
+            },
+            {
+              "name": "text",
+              "value": "={{ { body: \"New post ready for \" + $('Postgres (Fetch Companies)').item.json.name + \"\\n\\n\" + $('Edit Fields').item.json.generatedText + \"\\n\\nReply: approve / regenerate / skip\" } }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e7f6a6d0-a703-4d51-877f-34eba4f8a3a6",
+      "name": "WhatsApp (Send Approval Request)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1250, 300]
+    }
+  ],
+  "connections": {
+    "Schedule": {
+      "main": [
+        [
+          {
+            "node": "Postgres (Fetch Companies)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres (Fetch Companies)": {
+      "main": [
+        [
+          {
+            "node": "Google Gemini (Generate Text)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini (Generate Text)": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Postgres (Save Draft Post)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres (Save Draft Post)": {
+      "main": [
+        [
+          {
+            "node": "WhatsApp (Send Approval Request)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Google Gemini (Generate Text)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {}
+}

@@ -1,0 +1,144 @@
+{
+  "name": "Daily Post Generation",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      },
+      "name": "Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300],
+      "notes": "Runs every day at 8:00 AM"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM web.\"Company\" c LEFT JOIN web.\"Promotion\" p ON c.id = p.\"companyId\"",
+        "options": {}
+      },
+      "name": "Postgres (Fetch Companies)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4-turbo",
+        "messages": {
+          "messageValues": [
+            {
+              "content": "Write a social media post for {{$json.name}}.\nBrand voice: {{$json.brandVoice}}\nInclude promotion: {{$json.title}} - {{$json.description}}"
+            }
+          ]
+        }
+      },
+      "name": "OpenAI (Generate Text)",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": "web",
+        "table": "Post",
+        "columns": "companyId, generatedText, status",
+        "options": {}
+      },
+      "name": "Postgres (Save Draft Post)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v20.0/WHATSAPP_PHONE_ID/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "whatsappApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "messaging_product",
+              "value": "whatsapp"
+            },
+            {
+              "name": "to",
+              "value": "={{$json.phone}}"
+            },
+            {
+              "name": "type",
+              "value": "text"
+            },
+            {
+              "name": "text",
+              "value": "={{ { body: \"New post ready for \" + $json.name + \"\\n\\n\" + $json.generatedText + \"\\n\\nReply: approve / regenerate / skip\" } }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "WhatsApp (Send Approval Request)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1050, 300]
+    }
+  ],
+  "connections": {
+    "Schedule": {
+      "main": [
+        [
+          {
+            "node": "Postgres (Fetch Companies)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres (Fetch Companies)": {
+      "main": [
+        [
+          {
+            "node": "OpenAI (Generate Text)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI (Generate Text)": {
+      "main": [
+        [
+          {
+            "node": "Postgres (Save Draft Post)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres (Save Draft Post)": {
+      "main": [
+        [
+          {
+            "node": "WhatsApp (Send Approval Request)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {}
+}

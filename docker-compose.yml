@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  web:
+    build: 
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: social-saas-web
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      # Note: The .env variables will be picked up automatically from the web/.env file when built/run

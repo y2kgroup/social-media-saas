@@ -1,0 +1,112 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["web"]
+}
+
+enum Role {
+  ADMIN
+  COMPANY_USER
+  @@schema("web")
+}
+
+enum PostStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  POSTED
+  FAILED
+  @@schema("web")
+}
+
+enum Platform {
+  FACEBOOK
+  INSTAGRAM
+  LINKEDIN
+  TWITTER
+  YELP
+  @@schema("web")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role     @default(COMPANY_USER)
+  companyId    String?
+  company      Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@schema("web")
+}
+
+model Company {
+  id             String          @id @default(uuid())
+  name           String
+  website        String?
+  phone          String?
+  address        String?
+  email          String?
+  brandVoice     String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  users          User[]
+  promotions     Promotion[]
+  socialAccounts SocialAccount[]
+  posts          Post[]
+  
+  @@schema("web")
+}
+
+model Promotion {
+  id          String    @id @default(uuid())
+  title       String
+  description String
+  validUntil  DateTime?
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@schema("web")
+}
+
+model SocialAccount {
+  id           String   @id @default(uuid())
+  platform     Platform
+  accessToken  String
+  refreshToken String?
+  pageOrProfileId String
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@unique([platform, companyId])
+  @@schema("web")
+}
+
+model Post {
+  id              String      @id @default(uuid())
+  companyId       String
+  company         Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  generatedText   String
+  imageUrl        String?
+  status          PostStatus  @default(DRAFT)
+  targetPlatforms Platform[]
+  scheduledAt     DateTime?
+  likes           Int         @default(0)
+  comments        Int         @default(0)
+  shares          Int         @default(0)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@schema("web")
+}
