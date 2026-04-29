@@ -4,8 +4,10 @@ import { cookies } from 'next/headers'
 export async function createClient() {
   const cookieStore = await cookies()
 
+  const appUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'
+  
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    `${appUrl}/api/supabase`,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
